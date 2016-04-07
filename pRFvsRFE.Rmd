@@ -1,0 +1,122 @@
+---
+title: "pRFvsRFE"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE)
+```
+
+## Set predictors and response
+Code taken from http://topepo.github.io/caret/rfe.html
+
+
+```{r setupvars}
+library(caret)
+library(mlbench)
+library(Hmisc)
+library(randomForest)
+
+n <- 100
+p <- 40
+sigma <- 1
+set.seed(1)
+sim <- mlbench.friedman1(n, sd = sigma)
+colnames(sim$x) <- c(paste("real", 1:5, sep = ""),
+                     paste("bogus", 1:5, sep = ""))
+bogus <- matrix(rnorm(n * p), nrow = n)
+colnames(bogus) <- paste("bogus", 5+(1:ncol(bogus)), sep = "")
+x <- cbind(sim$x, bogus)
+y <- sim$y
+
+normalization <- preProcess(x)
+x <- predict(normalization, x)
+x <- as.data.frame(x)
+
+```
+
+## RFE from caret
+```{r rfe}
+tic=proc.time()
+subsets <- c(1:5, 10, 15, 20, 25)
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 100,
+                   verbose = FALSE)
+
+rfProfile <- rfe(x, y,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+
+rfProfile
+
+proc.time()-tic
+```
+
+## Now my pRF method
+
+```{r prf}
+tic=proc.time()
+source('C:/Users/DP/Desktop/T2Hippo/pRF/R/AC_pRF.R', echo=F)
+
+dummy=lapply(c('ggplot2', 'permute', 'randomForest', 'reshape2', 'magrittr','multtest','plyr'),suppressPackageStartupMessages(require), character.only=T)
+
+
+
+runs = 100
+results = matrix(NA, nrow = runs, ncol = ncol(x))
+colnames(results) = colnames(x)
+significants = rep(0, ncol(x))
+maxsig = rep(0,runs)
+ntree=300
+mtry=floor(ncol(x)/3)
+
+for (kot in 1:runs) {
+  seed = sample(100:10000,1)
+  suppressMessages(
+  p.test<-pRF(response=y,mtry=mtry,
+              predictors=x,n.perms=500,ntree=ntree,seed=seed,
+              type="regression",alpha=0.05)
+  )
+  results[kot,order(p.test$Res.table$p.value)] = 1:ncol(x)
+  sig = p.test$Res.table$p.value < 0.05
+  maxsig[kot] = sum(sig)
+  significants[sig] = significants[sig]+1
+  cat(paste(kot,''))
+}
+
+thisorder = order(significants, decreasing= T)
+LTLEpredicts = data.frame(AverageOrder = colMeans(results)[thisorder] , SignificanceRatio=(significants/runs)[thisorder])
+
+print(paste('Based on',runs,'runs with 300 permtations each'))
+print(paste('Average significant variables', mean(maxsig)))
+LTLEpredicts
+
+proc.time()-tic
+```
+
+
+## compare LOOCV of both outcomes
+
+```{r loocv}
+rfevars = c(4,5,2,1)
+prfvars = c(1,2,4,5,22,49)
+
+rfepred = prfpred = rep(NA,length(y))
+for (i in 1:length(y)) {
+  mod = randomForest(x = x[-i,rfevars],y=y[-i],ntree=500)
+  rfepred[i] = predict(mod, newdata=x[i,rfevars])
+  
+  mod = randomForest(x = x[-i,prfvars],y=y[-i],ntree=500)
+  prfpred[i] = predict(mod, newdata=x[i,prfvars])
+  
+}
+
+cor(y,rfepred)
+cor(y,prfpred)
+
+plot(y,rfepred); title(paste0('pRF selected prediction\n',paste(colnames(x)[rfevars], collapse=' ')))
+plot(y,prfpred); title(paste0('pRF selected prediction\n',paste(colnames(x)[prfvars], collapse=' ')))
+
+```
