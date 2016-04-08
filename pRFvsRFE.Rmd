@@ -36,7 +36,7 @@ x <- as.data.frame(x)
 ```
 
 ## RFE from caret
-```{r rfe}
+```{r rfe, cache=T}
 tic=proc.time()
 subsets <- c(1:5, 10, 15, 20, 25)
 
@@ -56,7 +56,7 @@ proc.time()-tic
 
 ## Now my pRF method
 
-```{r prf}
+```{r prf, cache=T}
 tic=proc.time()
 source('C:/Users/DP/Desktop/T2Hippo/pRF/R/AC_pRF.R', echo=F)
 
@@ -65,6 +65,7 @@ dummy=lapply(c('ggplot2', 'permute', 'randomForest', 'reshape2', 'magrittr','mul
 
 
 runs = 100
+perms=500
 results = matrix(NA, nrow = runs, ncol = ncol(x))
 colnames(results) = colnames(x)
 significants = rep(0, ncol(x))
@@ -76,7 +77,7 @@ for (kot in 1:runs) {
   seed = sample(100:10000,1)
   suppressMessages(
   p.test<-pRF(response=y,mtry=mtry,
-              predictors=x,n.perms=500,ntree=ntree,seed=seed,
+              predictors=x,n.perms=perms,ntree=ntree,seed=seed,
               type="regression",alpha=0.05)
   )
   results[kot,order(p.test$Res.table$p.value)] = 1:ncol(x)
@@ -89,7 +90,7 @@ for (kot in 1:runs) {
 thisorder = order(significants, decreasing= T)
 LTLEpredicts = data.frame(AverageOrder = colMeans(results)[thisorder] , SignificanceRatio=(significants/runs)[thisorder])
 
-print(paste('Based on',runs,'runs with 300 permtations each'))
+print(paste('Based on',runs,'runs with',perms,'permutations each'))
 print(paste('Average significant variables', mean(maxsig)))
 LTLEpredicts
 
