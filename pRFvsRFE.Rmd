@@ -101,8 +101,8 @@ proc.time()-tic
 ## compare LOOCV of both outcomes
 
 ```{r loocv}
-rfevars = c(4,5,2,1)
-prfvars = c(1,2,4,5,22,49)
+rfevars = c(4,5,2,1) # selected variables from caret's RFE
+prfvars = c(1,2,4,5,22,49) # selected variables from averaged pRF
 
 rfepred = prfpred = rep(NA,length(y))
 for (i in 1:length(y)) {
@@ -117,7 +117,11 @@ for (i in 1:length(y)) {
 cor(y,rfepred)
 cor(y,prfpred)
 
-plot(y,rfepred); title(paste0('pRF selected prediction\n',paste(colnames(x)[rfevars], collapse=' ')))
-plot(y,prfpred); title(paste0('pRF selected prediction\n',paste(colnames(x)[prfvars], collapse=' ')))
+plot(y,rfepred);
+title(paste0('RFE selected prediction\n',paste(colnames(x)[rfevars], collapse=' '), '\nr = ', round(cor(y,rfepred),2) ))
+abline(a=0,b=1)
+plot(y,prfpred); 
+title(paste0('pRF selected prediction\n',paste(colnames(x)[prfvars], collapse=' '), '\nr = ', round(cor(y,prfpred),2) ))
+abline(a=0,b=1)
 
 ```
